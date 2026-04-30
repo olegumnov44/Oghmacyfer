@@ -35,16 +35,16 @@ class CipherMenu:
         print(" 0. Прогон по всем вариантам")
         print("-"*40)
         print(" 1. Подстановка, алфавит 3 (en), английский язык")
-        print(" 2. Перестановка, ключ 1, ASCII символы")
+        print(" 2. Перестановка, ключ 1")
         print(" 3. Мультиподстановка, [алфавиты 1, 2, 5] (ru), русский язык")
-        print(" 4. Перестановка, ключ 2, русский язык")
+        print(" 4. Перестановка, ключ 2")
         print(" 5. Подстановка, алфавит 4 (en), английский язык")
         print(" 6. Мультиподстановка, [алфавиты 1, 3] (ru), русский язык")
         print(" 7. Подстановка, алфавит 1 (en), английский язык")
         print(" 8. Мультиподстановка, [алфавиты 2, 5] (en), английский язык")
-        print(" 9. Перестановка, ключ 3, ASCII символы")
+        print(" 9. Перестановка, ключ 3")
         print("10. Подстановка, алфавит 2 (ru), русский язык")
-        print("11. Перестановка, ключ 4, ASCII символы")
+        print("11. Перестановка, ключ 4")
         print("12. Мультиподстановка, [алфавиты 1, 3, 4] (ru), русский язык")
         print("="*60)
     
@@ -116,9 +116,12 @@ class CipherMenu:
     
     def get_custom_text(self, variant):
         """Запрашивает пользовательский текст"""
-        print(f"Исходный словарь: '{variant.cipher.alphabet0}'")
+        if variant.cipher_type in ['SUBS', 'MULTISUBS']:
+            print(f"Исходный словарь: '{variant.cipher.alphabet0}'")
+        elif variant.cipher_type in ['PERMUT']:
+            print(f"Ключ: '{variant.cipher.key[1]}'")
         print(f"Введите текст для шифрования (нажмите Enter для использования примера):")
-        text = input().strip()
+        text = input()
         
         if not text:
             return None
@@ -169,6 +172,8 @@ class CipherMenu:
 
 # Главная функция
 def main():
+    # alpha = cyphers.Alphabet()
+    # alpha.print_alphabets('00')
     """Точка входа в программу"""
     print("\n" + "="*60)
     print("   ПРОГРАММА ДЛЯ ШИФРОВАНИЯ ТЕКСТА")
