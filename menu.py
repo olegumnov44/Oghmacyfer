@@ -1,4 +1,10 @@
-import variants, cyphers, texts
+# menu.py
+import argparse
+import sys
+import variants
+import cyphers
+import texts
+
 
 class CipherMenu:
     """Класс для управления меню программы"""
@@ -28,6 +34,17 @@ class CipherMenu:
                     [cyphers.Alphabet.ALPHABET01_RU, cyphers.Alphabet.ALPHABET03_RU, cyphers.Alphabet.ALPHABET04_RU], 'RU')
         ]
     
+    def get_variant_by_id(self, variant_id):
+        """Получает вариант по ID"""
+        for variant in self.variants:
+            if variant.variant_id == variant_id:
+                return variant
+        return None
+    
+    def get_all_variants(self):
+        """Возвращает список всех вариантов"""
+        return self.variants
+    
     def display_menu(self):
         """Отображает главное меню"""
         print("\n" + "="*60)
@@ -48,14 +65,7 @@ class CipherMenu:
         print("12. Мультиподстановка, [алфавиты 1, 3, 4] (ru), русский язык")
         print("="*60)
     
-    def get_variant_by_id(self, variant_id):
-        """Получает вариант по ID"""
-        for variant in self.variants:
-            if variant.variant_id == variant_id:
-                return variant
-        return None
-    
-    def run_all_variants(self):
+    def run_all_variants(self, show_algo=False):
         """Запускает все варианты с примерами текстов"""
         print("\n" + "="*60)
         print("      ПРОГОН ПО ВСЕМ ВАРИАНТАМ ШИФРОВАНИЯ")
@@ -73,13 +83,16 @@ class CipherMenu:
                 text = texts.ExampleTexts.TEXT_ASCII
             
             variant.display_result(text)
+            
+            if show_algo:
+                variant.show_algorithm()
     
-    def run_single_variant(self, variant_id, custom_text=None):
+    def run_single_variant(self, variant_id, custom_text=None, show_algo=False):
         """Запускает один вариант"""
         variant = self.get_variant_by_id(variant_id)
         if not variant:
             print(f"Ошибка: Вариант {variant_id} не найден!")
-            return
+            return None
         
         # Определяем текст для шифрования
         if custom_text:
@@ -95,13 +108,30 @@ class CipherMenu:
             else:  # PERMUT
                 text = texts.ExampleTexts.TEXT_ASCII
         
-        variant.display_result(text)
+        encrypted, decrypted = variant.display_result(text)
         
-        # Спрашиваем, хочет ли пользователь увидеть алгоритм
-        print("Показать алгоритм работы? (y/n): ", end="")
-        show_algo = input().lower()
-        if show_algo in ['y', 'yes', 'да', 'д']:
+        if show_algo:
             variant.show_algorithm()
+        
+        return {'text': text, 'encrypted': encrypted, 'decrypted': decrypted}
+    
+    def encrypt_text(self, variant_id, text):
+        """Только шифрование текста (без вывода)"""
+        variant = self.get_variant_by_id(variant_id)
+        if not variant:
+            raise ValueError(f"Вариант {variant_id} не найден")
+        
+        encrypted, _ = variant.process_text(text)
+        return encrypted
+    
+    def decrypt_text(self, variant_id, text):
+        """Только расшифрование текста (без вывода)"""
+        variant = self.get_variant_by_id(variant_id)
+        if not variant:
+            raise ValueError(f"Вариант {variant_id} не найден")
+        
+        _, decrypted = variant.process_text(text)
+        return decrypted
     
     def get_user_input(self):
         """Получает ввод пользователя"""
@@ -137,19 +167,28 @@ class CipherMenu:
             return "английский текст"
         return "любой текст"
     
-    def run(self):
-        """Главный цикл программы"""
+    def interactive_mode(self):
+        """Интерактивный режим работы"""
+        print("\n" + "="*60)
+        print("   ПРОГРАММА ДЛЯ ШИФРОВАНИЯ ТЕКСТА")
+        print("   Поддержка подстановки, перестановки и мультиподстановки")
+        print("="*60)
+        
         while self.running:
             self.display_menu()
             choice = self.get_user_input()
             
             if choice == 0:
-                self.run_all_variants()
+                # Спрашиваем про показ алгоритмов
+                show_algo = input("Показывать алгоритмы для каждого варианта? (y/n): ").lower() in ['y', 'yes', 'да', 'д']
+                self.run_all_variants(show_algo)
             elif 1 <= choice <= 12:
                 variant = self.get_variant_by_id(choice)
                 if variant:
                     custom_text = self.get_custom_text(variant)
-                    self.run_single_variant(choice, custom_text)
+                    # Спрашиваем про показ алгоритма
+                    show_algo = input("Показать алгоритм работы? (y/n): ").lower() in ['y', 'yes', 'да', 'д']
+                    self.run_single_variant(choice, custom_text, show_algo)
                 else:
                     print(f"Вариант {choice} не найден!")
             else:
@@ -168,20 +207,155 @@ class CipherMenu:
             elif answer != '1':
                 print("Неверный ввод. Программа завершается.")
                 self.running = False
-                
+
+
+def setup_cli_parser():
+    """Настройка парсера командной строки"""
+    parser = argparse.ArgumentParser(
+        prog='cli',
+        description='Инструмент для шифрования текста с использованием подстановки, перестановки и мультиподстановки',
+        epilog="""
+Примеры использования:
+  %(prog)s --list
+  %(prog)s --variant 1 --text "HELLO"
+  %(prog)s --variant 1 --encrypt "HELLO"
+  %(prog)s --variant 1 --decrypt "KHOOR"
+  %(prog)s --variant 1 --file input.txt --output encrypted.txt
+  %(prog)s --variant 2 --text "ABCDEF" --show-algo
+  %(prog)s --run-all
+        """,
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    
+    parser.add_argument('--list', '-l', action='store_true',
+                       help='Показать список доступных вариантов шифрования')
+    
+    parser.add_argument('--variant', '-v', type=int, choices=range(1, 13), metavar='N',
+                       help='Номер варианта (1-12)')
+    
+    parser.add_argument('--encrypt', '-e', action='store_true',
+                       help='Режим шифрования (по умолчанию)')
+    
+    parser.add_argument('--decrypt', '-d', action='store_true',
+                       help='Режим расшифрования')
+    
+    parser.add_argument('--text', '-t', type=str,
+                       help='Текст для обработки')
+    
+    parser.add_argument('--file', '-f', type=str,
+                       help='Входной файл с текстом')
+    
+    parser.add_argument('--output', '-o', type=str,
+                       help='Выходной файл для сохранения результата')
+    
+    parser.add_argument('--show-algo', '-a', action='store_true',
+                       help='Показать алгоритм работы шифра')
+    
+    parser.add_argument('--run-all', '-r', action='store_true',
+                       help='Прогнать все варианты')
+    
+    parser.add_argument('--interactive', '-i', action='store_true',
+                       help='Интерактивный режим с меню')
+    
+    return parser
+
+
+def cli_mode():
+    """CLI режим работы с аргументами командной строки"""
+    parser = setup_cli_parser()
+    args = parser.parse_args()
+    
+    menu = CipherMenu()
+    
+    # Интерактивный режим
+    if args.interactive:
+        menu.interactive_mode()
+        return
+    
+    # Список вариантов
+    if args.list:
+        menu.display_menu()
+        return
+    
+    # Прогон всех вариантов
+    if args.run_all:
+        menu.run_all_variants(show_algo=args.show_algo)
+        return
+    
+    # Работа с конкретным вариантом
+    if args.variant:
+        # Получаем текст
+        text = None
+        if args.file:
+            try:
+                with open(args.file, 'r', encoding='utf-8') as f:
+                    text = f.read()
+                print(f"Текст прочитан из файла: {args.file}")
+            except Exception as e:
+                print(f"Ошибка чтения файла: {e}")
+                sys.exit(1)
+        elif args.text:
+            text = args.text
+        else:
+            # Если не указан ни текст, ни файл, используем пример
+            variant = menu.get_variant_by_id(args.variant)
+            if variant:
+                if variant.cipher_type in ['SUBS', 'MULTISUBS']:
+                    if variant.params[-1] == 'RU':
+                        text = texts.ExampleTexts.TEXT_RU
+                    elif variant.params[-1] == 'EN':
+                        text = texts.ExampleTexts.TEXT_EN
+                    else:
+                        text = texts.ExampleTexts.TEXT_ASCII
+                else:
+                    text = texts.ExampleTexts.TEXT_ASCII
+                print(f"Использован пример текста: '{text}'")
+        
+        if not text:
+            print("Ошибка: не указан текст для обработки")
+            sys.exit(1)
+        
+        # Режим расшифрования или шифрования
+        if args.decrypt:
+            result = menu.decrypt_text(args.variant, text)
+            operation = "Расшифрованный текст"
+        else:
+            result = menu.encrypt_text(args.variant, text)
+            operation = "Зашифрованный текст"
+        
+        # Вывод результата
+        if args.output:
+            try:
+                with open(args.output, 'w', encoding='utf-8') as f:
+                    f.write(result)
+                print(f"{operation} сохранен в файл: {args.output}")
+            except Exception as e:
+                print(f"Ошибка записи в файл: {e}")
+                sys.exit(1)
+        else:
+            print(f"\n{operation}: '{result}'")
+        
+        # Показ алгоритма
+        if args.show_algo:
+            variant = menu.get_variant_by_id(args.variant)
+            if variant:
+                variant.show_algorithm()
+    
+    else:
+        # Если не указаны аргументы, показываем справку
+        parser.print_help()
+
 
 # Главная функция
 def main():
-    # alpha = cyphers.Alphabet()
-    # alpha.print_alphabets('00')
     """Точка входа в программу"""
-    print("\n" + "="*60)
-    print("   ПРОГРАММА ДЛЯ ШИФРОВАНИЯ ТЕКСТА")
-    print("   Поддержка подстановки, перестановки и мультиподстановки")
-    print("="*60)
-    
-    menu = CipherMenu()
-    menu.run()
+    # Проверяем наличие аргументов командной строки
+    if len(sys.argv) > 1:
+        cli_mode()
+    else:
+        # Без аргументов запускаем интерактивный режим
+        menu = CipherMenu()
+        menu.interactive_mode()
 
 
 if __name__ == "__main__":
